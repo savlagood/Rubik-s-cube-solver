@@ -1,9 +1,104 @@
+"""
+class Square:
+	color: int
+	neighbors: list
+
+class Cube:
+	sides_map: list
+
+0: 1 2 3 4
+1: 0 2 5 4
+2: 0 3 5 1
+3: 0 4 5 2
+4: 0 1 5 3
+5: 1 2 3 4
+
+"""
+
 import numpy as np
+
+side_neighbors = {
+	0: [3, 2, 1, 4],
+	1: [0, 2, 5, 4],
+	2: [0, 3, 5, 1],
+	3: [0, 4, 5, 2],
+	4: [0, 1, 5, 3],
+	5: [4, 1, 2, 3],
+}
+
+
+class Square:
+	def __init__(self, color, neigh_colors=None):
+		self.color = color
+		self.neigh_colors = neigh_colors if neigh_colors is not None else list()
+
+	def __str__(self):
+		return f"c-{self.color}:" + "".join(map(str, self.neigh_colors))
+
+	def __repr__(self):
+		return str(self)
+
+	def __len__(self):
+		return len(self.neigh_colors) + 1
+
+	def add_neigh_color(self, *colors):
+		for color in colors:
+			self.neigh_colors.append(color)
 
 
 class Cube:
 	def __init__(self, sides_map):
+		for side in range(6):
+			for row in range(3):
+				for col in range(3):
+					sides_map[side][row][col] = Square(sides_map[side][row][col])
+
 		self.sides_map = np.array(sides_map)
+
+		for side in range(6):
+			for row in range(3):
+				for col in range(3):
+					square = self.sides_map[side, row, col]
+
+					if row == 0 and col == 0: # => 3, 0
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][0], 2, 0].color,
+							self.sides_map[side_neighbors[side][3], 0, 2].color)
+
+					elif row == 0 and col == 1: # => 0
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][0], 2, 1].color)
+
+					elif row == 0 and col == 2: # => 0, 1
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][0], 2, 2].color,
+							self.sides_map[side_neighbors[side][1], 0, 0].color)
+
+					elif row == 1 and col == 0: # => 3
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][3], 1, 2].color)
+
+					elif row == 1 and col == 1: # => None because middle
+						pass
+					elif row == 1 and col == 2: # => 1
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][1], 1, 0].color)
+
+					elif row == 2 and col == 0: # => 2, 3
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][2], 0, 0].color,
+							self.sides_map[side_neighbors[side][3], 2, 2].color)
+
+					elif row == 2 and col == 1: # => 2
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][2], 0, 1].color)
+
+					elif row == 2 and col == 2: # => 1, 2
+						square.add_neigh_color(
+							self.sides_map[side_neighbors[side][1], 2, 0].color,
+							self.sides_map[side_neighbors[side][2], 0, 2].color)
+
+					self.sides_map[side, row, col] = square
 
 	def rotate(self, side_idx:int, n:int, byclockwise:bool):
 		n %= 4
