@@ -1,1 +1,0 @@
-subl cube.py main.py && source venv/bin/activate && echo "OK"
