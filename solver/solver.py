@@ -7,38 +7,79 @@ from shortcuts import (adjacent_sides_colors, sides_codes,
 
 
 class Solver:
-	def __init__(self, rubcube:RubiksCube):
+	"""
+	Some most common variable names:
+	- side_code - code of the side: 0 - Top, 1 - front, 2 - left, 3 - back,
+				  4 - right, 5 - bottom.
+	- 
+	"""
+	def __init__(self, rubcube:RubiksCube) -> None:
+		"""Initialize the main params to solving"""
 		self.rubcube = copy.deepcopy(rubcube)
-		self.solving_steps = list()
+		# Color to code coding
 		self.color_to_code = dict()
+		# Contains rotations codes which is a triplets 012 where (0) is code of side,
+		# (1) is number of spins, (2) is directon (by/counter clock wise)
+		self.solving_steps = list()
 
-	def color_to_code_init(self):
+	def color_to_code_init(self) -> None:
+		"""Code colors to codes and writes this pairs to self.color_to_code"""
 		for code in range(6):
 			color = self.rubcube.sides_map[code, 1, 1].color
 			self.color_to_code[color] = code
 			self.color_to_code[code] = color
 
-	def rotate_side(self, side_code:int, n:int, byclockwise:bool=True):
+	def rotate_side(self, side_code:int, n:int, byclockwise:bool=True) -> None:
+		"""Rotate self.rubcube side with side_code n times byclockwise.
+		Add rotation code to self.solving_steps
+		"""
 		n %= 4
-		if n > 2:
+
+		if n == 3:
 			n = 1
 			byclockwise = not byclockwise
 
 		self.solving_steps.append(f"{side_code}{n}{int(byclockwise)}")
 		self.rubcube.rotate_side(side_idx=side_code, n=n, byclockwise=byclockwise)
 
-	def solve(self):
-		self.color_to_code_init()
-		self.main_color = self.rubcube.sides_map[0][1, 1].color
+	def solve(self) -> list:
+		"""Looking for the optimal solution out of six possible solutions.
+		Each of six sides may be main one
+		"""
+		rubcube = copy.deepcopy(self.rubcube)
+		
+		best_side = -1
+		best_solving_steps = list()
 
-		self.collect_0_layer_crosspiece()
-		self.collect_0_layer_corners()
-		self.collect_1_layer_corners()
-		self.collect_2_layer_crosspiece()
-		self.collect_2_layer_corners()
+		for main_side_code in range(6):
+			print(main_side_code)
+			print(self.rubcube.sides_map)
+			# Clean solving steps
+			self.solving_steps = list()
+			# Clonning main rubcube
+			self.rubcube = copy.deepcopy(rubcube)
+			self.rubcube.rotate_all_cube(target_side_code=main_side_code)
+			# Code the colors and get main_color (color of top central cube)
+			self.color_to_code_init()
+			self.main_color = self.rubcube.sides_map[0][1, 1].color
+			# Solving
+			self.collect_0_layer_crosspiece()
+			self.collect_0_layer_corners()
+			self.collect_1_layer_corners()
+			self.collect_2_layer_crosspiece()
+			self.collect_2_layer_corners()
+			# Optimization
+			self.optim_solving_steps()
+			# Is best this solving way?
+			if len(best_solving_steps) > len(self.solving_steps) or not best_solving_steps:
+				best_side = main_side_code
+				best_solving_steps = self.solving_steps
 
-		self.optim_solving_steps()
-		return self.solving_steps
+			print(main_side_code)
+
+		print(best_side)
+
+		return best_solving_steps
 
 	def collect_0_layer_crosspiece(self):
 		main_cross_cubes = self.get_cross_cubes(side_code=0)
