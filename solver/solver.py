@@ -6,6 +6,16 @@ from shortcuts import (adjacent_sides_colors, sides_codes,
 					   counter_side, adjacent_sides_codes)
 
 
+side_code_by_best_side = {
+	0: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5},
+	1: {0: 1, 1: 5, 2: 2, 3: 0, 4: 4, 5: 3},
+	2: {0: 2, 1: 5, 2: 3, 3: 0, 4: 1, 5: 4},
+	3: {0: 3, 1: 5, 2: 4, 3: 0, 4: 2, 5: 1},
+	4: {0: 4, 1: 5, 2: 1, 3: 0, 4: 3, 5: 2},
+	5: {0: 5, 1: 1, 2: 4, 3: 3, 4: 2, 5: 0},
+}
+
+
 class Solver:
 	"""
 	Some most common variable names:
@@ -51,9 +61,7 @@ class Solver:
 		best_side = -1
 		best_solving_steps = list()
 
-		for main_side_code in range(6):
-			print(main_side_code)
-			print(self.rubcube.sides_map)
+		for main_side_code in range(5, 6):
 			# Clean solving steps
 			self.solving_steps = list()
 			# Clonning main rubcube
@@ -75,39 +83,38 @@ class Solver:
 				best_side = main_side_code
 				best_solving_steps = self.solving_steps
 
-			print(main_side_code)
-
-		print(best_side)
-
+		best_solving_steps = list(map(lambda s: f"{side_code_by_best_side[best_side][int(s[0])]}{s[1]}{s[2]}", best_solving_steps))
 		return best_solving_steps
 
 	def collect_0_layer_crosspiece(self):
-		main_cross_cubes = self.get_cross_cubes(side_code=0)
+		main_color = self.rubcube.sides_map[0][1, 1].color
 		handled_cubes = 0
 
-		first_idx = -1
-		for idx in range(len(main_cross_cubes)):
-			cube = main_cross_cubes[idx]
-			if cube.color == self.main_color:
+		for idx in range(4):
+			cross_cubes = self.get_cross_cubes(side_code=0)
+			cube = cross_cubes[idx]
+
+			if cube.color == main_color:
+				target_idx = self.color_to_code[cube.adjace_colors[0]] - 1
+				rot_n = (target_idx - idx) % 4
+
+				self.rotate_side(0, rot_n, byclockwise=False)
+				break
+
+		for idx in range(4):
+			cross_cubes = self.get_cross_cubes(side_code=0)
+			cube = cross_cubes[idx]
+
+			if cube.color == main_color:
 				handled_cubes += 1
 
-				if first_idx == -1:
-					first_idx = self.color_to_code[cube.adjace_colors[0]] - 1
-					rot_n = (first_idx - idx) % 4
+				target_idx = self.color_to_code[cube.adjace_colors[0]] - 1
+				rot_n = (target_idx - idx) % 4
 
-					if rot_n > 0:
-						self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
-
-				else:
-					_idx = (idx + first_idx) % 4
-					target_idx = self.color_to_code[cube.adjace_colors[0]] - 1
-					rot_n = (target_idx - _idx) % 4
-
-					if rot_n > 0:
-						self.rotate_side(side_code=_idx+1, n=1, byclockwise=False)
-						self.rotate_side(side_code=0, n=rot_n, byclockwise=True)
-						self.rotate_side(side_code=_idx+1, n=1, byclockwise=True)
-						self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
+				self.rotate_side(idx+1, 1, byclockwise=False)
+				self.rotate_side(0, rot_n, byclockwise=True)
+				self.rotate_side(idx+1, 1, byclockwise=True)
+				self.rotate_side(0, rot_n, byclockwise=False)
 
 		while handled_cubes < 4:
 			# Handle from 1 to 4 side
@@ -339,7 +346,6 @@ class Solver:
 			self.pif_paf(main_side_idx=0, adj_side_idx=((side - 4) % 4 + 1))
 			self.rotate_side(side_code=((side - 3) % 4 + 1), n=1, byclockwise=False)
 
-		# return
 		# Move crosspiece cubes to needed positions
 		# Is all crosspiece cubes in their positions
 		crosspiece_colors = list(map(
@@ -392,7 +398,6 @@ class Solver:
 			self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
 			return
 
-		# Other combinations
 		for i, color in enumerate(crosspiece_colors):
 			color_in_target_idx = target_cross_colors.index(color)
 			if crosspiece_colors[(i + 1) % 4] == target_cross_colors[(color_in_target_idx + 1) % 4]:

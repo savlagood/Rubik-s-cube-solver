@@ -9,8 +9,8 @@ from display import Display
 
 def assemble_the_cube():
 	solving_steps = solver.solve()
-	print(solving_steps)
-	
+	print("Solving steps:\n", solving_steps)
+
 	for step in solving_steps[:]:
 		side_code, n, byclockwise = map(int, list(step))
 		for _ in range(n):
