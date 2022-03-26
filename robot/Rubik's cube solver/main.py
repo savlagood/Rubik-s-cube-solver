@@ -1,6 +1,5 @@
 #!/usr/bin/env pybricks-micropython
 import time
-import threading
 
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
@@ -9,6 +8,7 @@ from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
+
 
 cube_index_to_pos = {
 	0: (2, 1),
@@ -21,34 +21,6 @@ cube_index_to_pos = {
 	7: (2, 0),
 }
 
-rgb_to_color = {
-	'central': {
-		'w': (82, 100, 100), 
-		'r': (53, 28, 16),
-		'b': (15, 45, 78),
-		'o': (61, 63, 38),
-		'g': (31, 74, 53),
-		'y': (69, 98, 100),
-	},
-	'cross': {
-		'w': (68, 90, 100), 
-		'r': (41, 25, 12),
-		'b': (12, 42, 67),
-		'o': (50, 55, 28),
-		'g': (27, 69, 49),
-		'y': (58, 89, 100),
-	},
-	'corner': {
-		'w': (76, 100, 100), 
-		'r': (43, 26, 13),
-		'b': (13, 43, 74),
-		'o': (54, 56, 30),
-		'g': (29, 70, 53),
-		'y': (60, 90, 100),
-	}
-}
-
-
 class Robot:
 	def __init__(self):
 		"""Initalizing main robot parameters."""
@@ -60,14 +32,15 @@ class Robot:
 		self.hand = Motor(Port.C)
 		self.scanner = Motor(Port.A)
 
+		self.scanner.control.limits(speed=1500)
+
 		# Sensors
-		# self.infrared_sensor = InfraredSensor(Port.S4)
 		self.color_sensor = ColorSensor(Port.S3)
 
 		# Motor speeds
 		self.platform_speed = 180 / 12 * 40 # 37
-		self.hand_speed = 350 # 270
-		self.scanner_speed = 1000
+		self.hand_speed = 330 # 270
+		self.scanner_speed = 1400
 
 		# Resets all motors angles
 		self.platform.reset_angle(0)
@@ -77,6 +50,19 @@ class Robot:
 		# Codes of sides from color sensor
 		# 0 - Top, 1 - front, 2 - left, 3 - back, 4 - right, 5 - bottom
 		self.side_codes_seq = [0, 1, 2, 3, 4, 5]
+
+		# Stabilization
+		self.hand.run_time(-90, 4000, wait=False) # -360
+		self.scanner.run_time(260, 4000) # 1040
+		# Zeroing the anglr values
+		self.hand.reset_angle(0)
+		self.scanner.reset_angle(0)
+		# Positing
+		self.hand.run_target(speed=50, target_angle=5)
+		self.scanner.run_target(speed=300, target_angle=-15)
+		# Zeroing the anglr values
+		self.hand.reset_angle(0)
+		self.scanner.reset_angle(0)
 
 	def rotate_platform(self, n:int, byclockwise:bool=True, side_control:bool=True, rot_optim:bool=True):
 		"""Rotate platform on which the Rubik's cube stands n times byclockwise.
@@ -100,34 +86,49 @@ class Robot:
 			scs = self.side_codes_seq # Create shortcut
 			scs[1], scs[2], scs[3], scs[4] = scs[(1+n-1)%4+1], scs[(2+n-1)%4+1], scs[(3+n-1)%4+1], scs[(4+n-1)%4+1]
 	
-	def hand_rotate(self, n:int, side_control:bool=True):
+	def hand_rotate(self, n:int, side_control:bool=True, hand_raised:bool=False):
 		"""Rotate cube by hand motor n times.
 		:side_control - if True then self.side_codes_seq will be changed.
+		:hand_raised - raise hand after cube rotation.
 		"""
 		n %= 4
-
 		for t in range(n):
-			self.hand.run_target(speed=self.hand_speed, target_angle=200)
-			self.hand.run_target(speed=self.hand_speed, target_angle=0)
-		
+			self.hand_pulling_cube()
+			if t < n - 1:
+				self.hand_on_cube()
 			# Change side codes sequence
 			if side_control:
 				scs = self.side_codes_seq
 				scs[0], scs[1], scs[5], scs[3] = scs[1], scs[5], scs[3], scs[0]
+		
+		if hand_raised:
+			self.hand_raised()
+		
+	def hand_raised(self):
+		"""Hand at 0 deg."""
+		self.hand.run_target(speed=self.hand_speed, target_angle=10)
+
+	def hand_on_cube(self):
+		"""Hand at 110 deg."""
+		self.hand.run_target(speed=self.hand_speed, target_angle=90)
 	
+	def hand_pulling_cube(self):
+		"""Hand at 200 deg."""
+		self.hand.run_target(speed=self.hand_speed, target_angle=200)
+
 	def scan_cross_cube(self):
 		"""Lift up color scanner on cross cubes of Rubik's cube and return his color at percentage."""
-		self.scanner.run_target(speed=self.scanner_speed, target_angle=-580, then=Stop.COAST) # -600
+		self.scanner.run_target(speed=self.scanner_speed, target_angle=-615, then=Stop.COAST) # -615
 		return self.color_sensor.rgb()
 	
 	def scan_corner_cube(self):
 		"""Lift up color scanner on corner cubes of Rubik's cube and return his color at percentage."""
-		self.scanner.run_target(speed=self.scanner_speed, target_angle=-520, then=Stop.COAST) # -560
+		self.scanner.run_target(speed=self.scanner_speed, target_angle=-535, then=Stop.COAST) # -540
 		return self.color_sensor.rgb()
 
 	def scan_central_cube(self):
 		"""Lift up color scanner on central cube of Rubik's cube and return his color at percentage."""
-		self.scanner.run_target(speed=self.scanner_speed, target_angle=-710) # -700
+		self.scanner.run_target(speed=self.scanner_speed, target_angle=-750) # -720
 		return self.color_sensor.rgb()
 	
 	def color_scanner_off(self):
@@ -142,9 +143,6 @@ class Robot:
 
 		# Firstly scan central cube
 		color = self.scan_central_cube()
-		print(color, ': ', end="")
-		color = self.percent_rgb_to_color(color, 'central')
-		print(color)
 		side_colors[1][1] = color
 
 		self.scan_corner_cube()
@@ -154,21 +152,13 @@ class Robot:
 			# Cross cubes
 			pos = cube_index_to_pos[i * 2 - 2]
 			color = self.scan_cross_cube()
-			print(color, ': ', end="")
-			color = self.percent_rgb_to_color(color, 'cross')
-			print(color)
 			side_colors[pos[0]][pos[1]] = color
-
 			self.rotate_platform(n=0.5, side_control=False)
 
 			# Corner cubes
 			pos = cube_index_to_pos[i * 2 - 1]
 			color = self.scan_corner_cube()
-			print(color, ': ', end="")
-			color = self.percent_rgb_to_color(color, 'corner')
-			print(color)
 			side_colors[pos[0]][pos[1]] = color
-
 			self.rotate_platform(n=0.5, side_control=False)
 
 			# Change side codes sequence
@@ -177,49 +167,36 @@ class Robot:
 
 		# Off color scanner
 		self.color_scanner_off()
-
 		return side_colors
 	
 	def scan_cube(self):
 		"""Full scan of all cube sides."""
 		cube_colors = list()
-
 		# 0 side
 		cube_colors.append(self.scan_side())
-		# print(cube_colors[-1])
-
 		# 1 side
-		self.hand_rotate(n=1)
+		self.hand_rotate(1, hand_raised=True)
 		cube_colors.append(self.scan_side())
-		# print(cube_colors[-1])
-
 		# 2 side
 		self.rotate_platform(n=1)
-		self.hand_rotate(n=1)
+		self.hand_rotate(1, hand_raised=True)
 		side_colors = self.scan_side()
 		side_colors = self.rotate_matrix(side_colors, n=1, byclockwise=False)
 		cube_colors.append(side_colors)
-		# print(cube_colors[-1])
-
 		# 3 side
-		self.hand_rotate(n=1)
+		self.hand_rotate(1, hand_raised=True)
 		side_colors = self.scan_side()
 		side_colors = self.rotate_matrix(side_colors, n=1, byclockwise=False)
 		cube_colors.append(side_colors)
-		# print(cube_colors[-1])
-
 		# 4 side
-		self.hand_rotate(n=1)
+		self.hand_rotate(1, hand_raised=True)
 		side_colors = self.scan_side()
 		side_colors = self.rotate_matrix(side_colors, n=1, byclockwise=False)
 		cube_colors.append(side_colors)
-		# print(cube_colors[-1])
-
 		# 5 side
 		self.rotate_platform(n=1, byclockwise=False)
-		self.hand_rotate(n=1)
+		self.hand_rotate(1, hand_raised=True)
 		cube_colors.append(self.scan_side())
-		# print(cube_colors[-1])
 
 		return cube_colors
 	
@@ -234,9 +211,9 @@ class Robot:
 			byclockwise = not byclockwise
 		
 		if n > 0:
-			self.hand.run_target(speed=self.hand_speed, target_angle=110)
+			self.hand_on_cube()
 			self.rotate_platform(n, byclockwise, side_control=False)
-			self.hand.run_target(speed=self.hand_speed, target_angle=0)
+			self.hand_raised()
 	
 	def target_to_current(self, target_side_code:int):
 		"""Move side with target_side_code to the bottom of cube."""
@@ -246,29 +223,17 @@ class Robot:
 			self.hand_rotate(2)
 
 		elif index < 5:
-			# if target side not at top and not at bottom 
-			self.rotate_platform(3 - index, byclockwise=False)
+			# if target side not at top and not at bottom
+			if 3 - index != 0:
+				self.hand_raised()
+				self.rotate_platform(3 - index, byclockwise=False)
+
 			self.hand_rotate(1)
 	
 	def rotate_side(self, side_code:int, n:int=1, byclockwise:bool=True):
 		"""Rotate side with side_code n times byclockwise."""
 		self.target_to_current(side_code)
 		self.rotate_current_side(n, byclockwise=byclockwise)
-
-	@staticmethod
-	def percent_rgb_to_color(rgb:tuple, cube_type:str):
-		"""Convert percent rgb to color."""
-		best_lag = float('inf')
-		best_color = None
-
-		for color, avg_rgb in rgb_to_color[cube_type].items():
-			lag = abs(avg_rgb[0] - rgb[0]) + abs(avg_rgb[1] - rgb[1]) + abs(avg_rgb[2] - rgb[2])
-
-			if lag < best_lag:
-				best_color = color
-				best_lag = lag
-
-		return best_color
 
 	@staticmethod
 	def rotate_matrix(matrix:list, n:int=1, byclockwise:bool=True):
@@ -284,43 +249,19 @@ class Robot:
 
 if __name__ == "__main__":
 	r = Robot()
+	r.color_sensor.rgb()
 
-	
-	# for i in range(50):
-	
-	# print(r.scan_side())
+	# print('Cube colors:')
+	# print(r.scan_cube())
+	# r.hand_rotate(2, hand_raised=True)
+	# r.rotate_platform(1)
 
-	# print(r.scan_central_cube())
-	# print(r.scan_cross_cube())
-	# time.sleep(3)
-	# r.rotate_platform(0.5, side_control=False)
-	# print(r.scan_corner_cube())
-	# time.sleep(3)
-	# r.rotate_platform(0.5, False, side_control=False)
-	# r.color_scanner_off()
+	solving_steps = ['511', '311', '110', '520', '211', '510', '310', '520', '311', '010', '310', '011', '111', '010', '110', '011', '111', '010', '110', '010', '411', '011', '410', '010', '411', '011', '410', '010', '411', '011', '410', '111', '010', '110', '010', '410', '011', '411', '020', '110', '011', '111', '011', '211', '010', '210', '021', '411', '010', '410', '010', '310', '011', '311', '011', '210', '011', '211', '011', '311', '010', '310', '411', '111', '011', '110', '010', '111', '011', '110', '010', '410', '311', '011', '310', '011', '311', '021', '310', '010', '211', '010', '410', '011', '210', '010', '411', '011', '111', '010', '310', '011', '110', '010', '311', '410', '111', '411', '110', '410', '111', '411', '110', '011', '410', '111', '411', '110', '410', '111', '411', '110', '011', '410', '111', '411', '110', '410', '111', '411', '110', '021']
 
-	
-	# # r.rotate_platform(0.5, byclockwise=False, side_control=False)
-	# r.color_scanner_off()
-
-	# for i in range(5):
-	# 	print(r.scan_cube())
-	# 	r.hand_rotate(2)
-	# 	r.rotate_platform(1)
-
-	print('Cube colors:')
-	print(r.scan_cube())
-
-	r.hand_rotate(2)
-	r.rotate_platform(1)
-	
-	# inp = ['021', '221', '121', '421', '321', '020', '111', '511', '110', '521', '311', '510', '310', '111', '511', '110', '211', '511', '210', '511', '111', '511', '110', '510', '111', '511', '110', '510', '111', '511', '110', '410', '511', '411', '511', '311', '510', '310', '110', '511', '111', '511', '411', '510', '410', '520', '210', '511', '211', '511', '111', '510', '110', '310', '511', '311', '511', '211', '510', '210', '411', '311', '511', '310', '510', '311', '511', '310', '510', '410', '311', '511', '310', '511', '311', '521', '310', '510', '111', '510', '310', '511', '110', '510', '311', '210', '111', '211', '110', '210', '111', '211', '110', '511', '210', '111', '211', '110', '210', '111', '211', '110', '511', '111', '210', '110', '211', '111', '210', '110', '211', '511', '111', '210', '110', '211', '111', '210', '110', '211', '511']
-	# solving_steps = list(map(str, inp[1:-1].replace(',', '').replace('\'', '').split()))
-
-	# solving_steps = ['410', '021', '111', '011', '310', '221', '011', '311', '511', '310', '511', '411', '510', '410', '511', '211', '510', '210', '511', '211', '510', '210', '411', '511', '410', '311', '510', '310', '511', '311', '510', '310', '510', '211', '510', '210', '510', '310', '511', '311', '520', '410', '511', '411', '511', '311', '510', '310', '511', '111', '510', '110', '510', '210', '511', '211', '411', '511', '410', '511', '411', '521', '410', '511', '210', '511', '411', '510', '211', '511', '410', '210', '111', '211', '110', '210', '111', '211', '110', '521', '111', '210', '110', '211', '111', '210', '110', '211', '511']
-
-	# for step in solving_steps[:]:
-	# 	side_code, n, byclockwise = map(int, list(step))
-	# 	r.rotate_side(side_code, n, byclockwise)
+	print(len(solving_steps))
+	for i, step in enumerate(solving_steps[:]):
+		print(i, '/', len(solving_steps))
+		side_code, n, byclockwise = map(int, list(step))
+		r.rotate_side(side_code, n, byclockwise)
 
 	time.sleep(1)
