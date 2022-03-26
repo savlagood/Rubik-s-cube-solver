@@ -94,7 +94,7 @@ rotation_axises = {
 }
 
 # Side turns counter clockwise by default
-side_code_to_rotation = {
+side_idx_to_rotation = {
 	0: {1:0, 2:0, 3:0, 4:0},
 	1: {5:1, 2:-1, 0:2, 4:1},
 	2: {5:2, 3:-1, 0:1, 1:1},

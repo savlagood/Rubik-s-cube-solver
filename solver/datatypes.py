@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 from shortcuts import (adjacent_sides_codes, colors_shortcuts,
-					   side_code_to_rotation, adjacent_indices)
+					   side_idx_to_rotation, adjacent_indices)
 
 
 class Square:
@@ -36,7 +36,7 @@ class RubiksCube:
 
 		for side in range(6):
 			loc_sides_map = copy.deepcopy(self.sides_map)
-			for adj_side, rot_n in side_code_to_rotation[side].items():
+			for adj_side, rot_n in side_idx_to_rotation[side].items():
 				loc_sides_map[adj_side] = np.rot90(loc_sides_map[adj_side], rot_n)
 
 			for row in range(3):
@@ -59,7 +59,7 @@ class RubiksCube:
 		else:
 			main_side = (side_idx + 2) % 5 + (side_idx + 2) // 5
 
-		self.rotate_all_cube(target_side_code=side_idx)
+		self.rotate_all_cube(target_side_idx=side_idx)
 		loc_sides_map = copy.deepcopy(self.sides_map)
 
 		# Rotate main side
@@ -69,16 +69,16 @@ class RubiksCube:
 		for side in range(1, 5):
 			self.sides_map[side, 0, :] = loc_sides_map[(side - n - 1) % 4 + 1, 0, :]
 
-		self.rotate_all_cube(target_side_code=main_side)
+		self.rotate_all_cube(target_side_idx=main_side)
 
-	def rotate_all_cube(self, target_side_code:int):
-		"""After rotation side with target_side_code will be at the top."""
-		if target_side_code == 0:
+	def rotate_all_cube(self, target_side_idx:int):
+		"""After rotation side with target_side_idx will be at the top."""
+		if target_side_idx == 0:
 			return
 
 		new_sides_map = np.empty((6, 3, 3), dtype=Square)
 
-		if target_side_code == 1:
+		if target_side_idx == 1:
 			new_sides_map[0] = self.sides_map[1]
 			new_sides_map[1] = np.rot90(self.sides_map[5], 1)
 			new_sides_map[2] = np.rot90(self.sides_map[2], -1)
@@ -86,7 +86,7 @@ class RubiksCube:
 			new_sides_map[4] = np.rot90(self.sides_map[4], 1)
 			new_sides_map[5] = np.rot90(self.sides_map[3], 1)
 
-		elif target_side_code == 2:
+		elif target_side_idx == 2:
 			new_sides_map[0] = np.rot90(self.sides_map[2], 1)
 			new_sides_map[1] = np.rot90(self.sides_map[1], 1)
 			new_sides_map[2] = np.rot90(self.sides_map[5], 2)
@@ -94,7 +94,7 @@ class RubiksCube:
 			new_sides_map[4] = np.rot90(self.sides_map[0], 1)
 			new_sides_map[5] = self.sides_map[4]
 
-		elif target_side_code == 3:
+		elif target_side_idx == 3:
 			new_sides_map[0] = np.rot90(self.sides_map[3], 2)
 			new_sides_map[1] = self.sides_map[0]
 			new_sides_map[2] = np.rot90(self.sides_map[2], 1)
@@ -102,7 +102,7 @@ class RubiksCube:
 			new_sides_map[4] = np.rot90(self.sides_map[4], -1)
 			new_sides_map[5] = np.rot90(self.sides_map[1], -1)
 
-		elif target_side_code == 4:
+		elif target_side_idx == 4:
 			new_sides_map[0] = np.rot90(self.sides_map[4], -1)
 			new_sides_map[1] = np.rot90(self.sides_map[1], -1)
 			new_sides_map[2] = np.rot90(self.sides_map[0], -1)
@@ -110,7 +110,7 @@ class RubiksCube:
 			new_sides_map[4] = self.sides_map[5]
 			new_sides_map[5] = np.rot90(self.sides_map[2], 2)
 
-		elif target_side_code == 5:
+		elif target_side_idx == 5:
 			new_sides_map[0] = np.rot90(self.sides_map[5], -1)
 			new_sides_map[1] = np.rot90(self.sides_map[1], -2)
 			new_sides_map[2] = np.rot90(self.sides_map[4], 2)
