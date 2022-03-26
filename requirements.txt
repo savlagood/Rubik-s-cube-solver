@@ -1,0 +1,10 @@
+colormath==3.0.0
+networkx==2.6.3
+numpy==1.21.0
+panda3d==1.10.9
+panda3d-gltf==0.13
+panda3d-simplepbr==0.8
+Pillow==8.3.1
+pyperclip==1.8.2
+screeninfo==0.6.7
+ursina==3.6.0
