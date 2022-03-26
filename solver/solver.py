@@ -6,7 +6,7 @@ from shortcuts import (adjacent_sides_colors, sides_codes,
 					   counter_side, adjacent_sides_codes)
 
 
-side_code_by_best_side = {
+side_idx_by_best_side = {
 	0: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5},
 	1: {0: 1, 1: 5, 2: 2, 3: 0, 4: 4, 5: 3},
 	2: {0: 2, 1: 5, 2: 3, 3: 0, 4: 1, 5: 4},
@@ -19,7 +19,7 @@ side_code_by_best_side = {
 class Solver:
 	"""
 	Some most common variable names:
-	- side_code - code of the side: 0 - Top, 1 - front, 2 - left, 3 - back,
+	- side_idx - code of the side: 0 - Top, 1 - front, 2 - left, 3 - back,
 				  4 - right, 5 - bottom.
 	- 
 	"""
@@ -39,8 +39,8 @@ class Solver:
 			self.color_to_code[color] = code
 			self.color_to_code[code] = color
 
-	def rotate_side(self, side_code:int, n:int, byclockwise:bool=True) -> None:
-		"""Rotate self.rubcube side with side_code n times byclockwise.
+	def rotate_side(self, side_idx:int, n:int, byclockwise:bool=True) -> None:
+		"""Rotate self.rubcube side with side_idx n times byclockwise.
 		Add rotation code to self.solving_steps
 		"""
 		n %= 4
@@ -49,14 +49,8 @@ class Solver:
 			n = 1
 			byclockwise = not byclockwise
 
-		self.solving_steps.append(f"{side_code}{n}{int(byclockwise)}")
-		self.rubcube.rotate_side(side_idx=side_code, n=n, byclockwise=byclockwise)
-
-	def check(self):
-		pass
-		# print("==="*7)
-		# print(self.solving_steps)
-		# print(self.rubcube.sides_map)
+		self.solving_steps.append(f"{side_idx}{n}{int(byclockwise)}")
+		self.rubcube.rotate_side(side_idx=side_idx, n=n, byclockwise=byclockwise)
 
 	def solve(self) -> list:
 		"""Looking for the optimal solution out of six possible solutions.
@@ -67,213 +61,223 @@ class Solver:
 		best_side = -1
 		best_solving_steps = list()
 
-		for main_side_code in range(5, 6):
+		for main_side_idx in range(5, 6):
 			# Clean solving steps
 			self.solving_steps = list()
 			# Clonning main rubcube
 			self.rubcube = copy.deepcopy(rubcube)
-			self.rubcube.rotate_all_cube(target_side_code=main_side_code)
+			self.rubcube.rotate_all_cube(target_side_idx=main_side_idx)
 			# Code the colors and get main_color (color of top central cube)
 			self.color_to_code_init()
-			self.main_color = self.rubcube.sides_map[0][1, 1].color
 			# Solving
-			# self.check()
-			self.collect_0_layer_crosspiece()
-			# self.check()
-			self.collect_0_layer_corners()
-			# self.check()
-			self.collect_1_layer_corners()
-			# self.check()
-			self.collect_2_layer_crosspiece()
-			# self.check()
-			self.collect_2_layer_corners()
-			# self.check()
+			self.solve_0_layer_crosspiece()
+			self.solve_0_layer_corners()
+			self.solve_1_layer_corners()
+			self.solve_2_layer_crosspiece()
+			self.solve_2_layer_corners()
 			# Optimization
 			self.optim_solving_steps()
-			self.check()
+
 			# Is best this solving way?
 			if len(best_solving_steps) > len(self.solving_steps) or not best_solving_steps:
-				best_side = main_side_code
+				best_side = main_side_idx
 				best_solving_steps = self.solving_steps
 
-		best_solving_steps = list(map(lambda s: f"{side_code_by_best_side[best_side][int(s[0])]}{s[1]}{s[2]}", best_solving_steps))
+		best_solving_steps = list(map(lambda s: f"{side_idx_by_best_side[best_side][int(s[0])]}{s[1]}{s[2]}", best_solving_steps))
 		return best_solving_steps
 
-	def collect_0_layer_crosspiece(self):
+	def solve_0_layer_crosspiece(self) -> None:
+		"""Solves the crosspiece of the top layer."""
 		main_color = self.rubcube.sides_map[0][1, 1].color
-		handled_cubes = 0
 
-		for idx in range(4):
-			cross_cubes = self.get_cross_cubes(side_code=0)
-			cube = cross_cubes[idx]
+		# Rotates top side to best position
+		for cube_idx in range(4):
+			cross_cubes = self.get_cross_cubes(side_idx=0)
+			cube = cross_cubes[cube_idx]
 
 			if cube.color == main_color:
 				target_idx = self.color_to_code[cube.adjace_colors[0]] - 1
-				rot_n = (target_idx - idx) % 4
-
+				rot_n = (target_idx - cube_idx) % 4
 				self.rotate_side(0, rot_n, byclockwise=False)
 				break
 
-		for idx in range(4):
-			cross_cubes = self.get_cross_cubes(side_code=0)
-			cube = cross_cubes[idx]
+		# Iterates over all crosspieces cubes on the top side and moves them to the
+		# correct positions
+		for side_idx in range(4):
+			cross_cubes = self.get_cross_cubes(side_idx=0)
+			cube = cross_cubes[side_idx]
 
 			if cube.color == main_color:
-				handled_cubes += 1
-
 				target_idx = self.color_to_code[cube.adjace_colors[0]] - 1
-				rot_n = (target_idx - idx) % 4
+				rot_n = (target_idx - side_idx) % 4
 
-				self.rotate_side(idx+1, 1, byclockwise=False)
+				self.rotate_side(side_idx + 1, 1, byclockwise=False)
 				self.rotate_side(0, rot_n, byclockwise=True)
-				self.rotate_side(idx+1, 1, byclockwise=True)
+				self.rotate_side(side_idx + 1, 1, byclockwise=True)
 				self.rotate_side(0, rot_n, byclockwise=False)
 
-		while handled_cubes < 4:
+		while True:
+			# Checks that top crosspiece was solved
+			counter = 0
+			for cube in self.get_cross_cubes(side_idx=0):
+				if cube.color == main_color:
+					counter += 1
+
+			if counter == 4:
+				break
+
 			# Handle from 1 to 4 side
-			for side in range(1, 5):
-				for i, (cross_row, cross_col) in enumerate(self.get_cross_indices(side_code=side)):
-					cube = self.rubcube.sides_map[side, cross_row, cross_col]
-					if cube.color == self.main_color:
-						handled_cubes += 1
-
-						if i == 0:
-							adj_side = (side - 1 + 1) % 4 + 1
+			for side_idx in range(1, 5):
+				for cube_position, (row_idx, col_idx) in enumerate(self.get_cross_indices()):
+					cube = self.rubcube.sides_map[side_idx, row_idx, col_idx]
+					if cube.color == main_color:
+						# Cube at the bottom of side
+						if cube_position == 0:
+							adj_side = (side_idx - 1 + 1) % 4 + 1
 							target_idx = self.color_to_code[cube.adjace_colors[0]]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=True)
-							self.rotate_side(side_code=side, n=1, byclockwise=False)
-							self.rotate_side(side_code=adj_side, n=1, byclockwise=True)
-							self.rotate_side(side_code=side, n=1, byclockwise=True)
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
+							self.rotate_side(0, rot_n, byclockwise=True)
+							self.rotate_side(side_idx, 1, byclockwise=False)
+							self.rotate_side(adj_side, 1, byclockwise=True)
+							self.rotate_side(side_idx, 1, byclockwise=True)
+							self.rotate_side(0, rot_n, byclockwise=False)
 
-						elif i == 1:
-							adj_side = (side - 1 + 1) % 4 + 1
+						# Cube at the right of side
+						elif cube_position == 1:
+							adj_side = (side_idx - 1 + 1) % 4 + 1
 							target_idx = self.color_to_code[cube.adjace_colors[0]]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=True)
-							self.rotate_side(side_code=adj_side, n=1, byclockwise=True)
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
+							self.rotate_side(0, rot_n, byclockwise=True)
+							self.rotate_side(adj_side, 1, byclockwise=True)
+							self.rotate_side(0, rot_n, byclockwise=False)
 
-						elif i == 2:
-							adj_side = (side - 1 + 1) % 4 + 1
+						# Cube at the top of side
+						elif cube_position == 2:
+							adj_side = (side_idx - 1 + 1) % 4 + 1
 							target_idx = self.color_to_code[cube.adjace_colors[0]]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=side, n=1, byclockwise=True)
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=True)
-							self.rotate_side(side_code=adj_side, n=1, byclockwise=True)
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
+							self.rotate_side(side_idx, 1, byclockwise=True)
+							self.rotate_side(0, rot_n, byclockwise=True)
+							self.rotate_side(adj_side, 1, byclockwise=True)
+							self.rotate_side(0, rot_n, byclockwise=False)
 
-						elif i == 3:
-							adj_side = (side - 1 - 1) % 4 + 1
+						# Cube at the left of side
+						elif cube_position == 3:
+							adj_side = (side_idx - 1 - 1) % 4 + 1
 							target_idx = self.color_to_code[cube.adjace_colors[0]]
 							rot_n = (target_idx - adj_side) % 4
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=True)
-							self.rotate_side(side_code=adj_side, n=1, byclockwise=False)
-							self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
+
+							self.rotate_side(0, rot_n, byclockwise=True)
+							self.rotate_side(adj_side, 1, byclockwise=False)
+							self.rotate_side(0, rot_n, byclockwise=False)
 
 			# Handle 5 side
-			for i, (cross_row, cross_col) in enumerate(self.get_cross_indices(side_code=5)):
-				cube = self.rubcube.sides_map[5, cross_row, cross_col]
-				if cube.color == self.main_color:
-					handled_cubes += 1
-
-					adj_side = (i + 2 * (not i % 2)) % 5
+			for cube_position, (row_idx, col_idx) in enumerate(self.get_cross_indices()):
+				cube = self.rubcube.sides_map[5, row_idx, col_idx]
+				if cube.color == main_color:
+					adj_side = (cube_position + 2 * (cube_position % 2 == 0)) % 5
 					target_idx = self.color_to_code[cube.adjace_colors[0]]
 					rot_n = (target_idx - adj_side) % 4
 
-					self.rotate_side(side_code=0, n=rot_n, byclockwise=True)
-					self.rotate_side(side_code=adj_side, n=2, byclockwise=True)
-					self.rotate_side(side_code=0, n=rot_n, byclockwise=False)
+					self.rotate_side(0, rot_n, byclockwise=True)
+					self.rotate_side(adj_side, 2, byclockwise=True)
+					self.rotate_side(0, rot_n, byclockwise=False)
 
-	def collect_0_layer_corners(self):
-		handled_cubes = 0
-		while handled_cubes < 4:
+	def solve_0_layer_corners(self) -> None:
+		"""Solves the corners of the top layer."""
+		main_color = self.rubcube.sides_map[0][1][1].color
+		while True:
+			# Checks that top corners was solved
+			counter = 0
+			for cube_position, cube in enumerate(self.get_corner_cubes(side_idx=0)):
+				adj_color = self.rubcube.sides_map[cube_position + 1, 1, 1].color
+				if cube.color == main_color and adj_color in cube.adjace_colors:
+					counter += 1
+
+			if counter == 4:
+				break
+
 			# Handle 0 side
-			for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=0)):
-				cube = self.rubcube.sides_map[0, cor_row, cor_col]
-				if cube.color == self.main_color:
-					adj_side = i + 1
+			for cube_position, (row_idx, col_idx) in enumerate(self.get_corner_indices()):
+				cube = self.rubcube.sides_map[0, row_idx, col_idx]
+				if cube.color == main_color:
+					adj_side = cube_position + 1
 					if self.rubcube.sides_map[adj_side, 1, 1].color not in cube.adjace_colors:
 						target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 0, 2].color]
 						rot_n = (target_idx - adj_side) % 4
 						
 						self.pif_paf(main_side_idx=0, adj_side_idx=adj_side)
-						self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+						self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 						self.back_pif_paf(main_side_idx=0, adj_side_idx=target_idx)
 
 			# Handle 1-4 sides
-			for side in range(1, 5):
-				for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=side)):
-					cube = self.rubcube.sides_map[side, cor_row, cor_col]
-
-					if cube.color == self.main_color:
-						if i == 0:
-							adj_side = side % 4 + 1
+			for side_idx in range(1, 5):
+				for cube_position, (row_idx, col_idx) in enumerate(self.get_corner_indices()):
+					cube = self.rubcube.sides_map[side_idx, row_idx, col_idx]
+					if cube.color == main_color:
+						# Cube at the bottom of side
+						if cube_position == 0:
+							adj_side = side_idx % 4 + 1
 							target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 0].color]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+							self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 							self.pif_paf(main_side_idx=0, adj_side_idx=(target_idx - 2) % 4 + 1)
 
-						elif i == 1:
-							adj_side = side % 4 + 1
-							self.pif_paf(main_side_idx=0, adj_side_idx=side)
+						# Cube at the right of side
+						elif cube_position == 1:
+							adj_side = side_idx % 4 + 1
+							self.pif_paf(main_side_idx=0, adj_side_idx=side_idx)
 
 							target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 0].color]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+							self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 							self.pif_paf(main_side_idx=0, adj_side_idx=(target_idx - 2) % 4 + 1)
 
-						elif i == 2:
-							adj_side = (side - 2) % 4 + 1
+						# Cube at the top of side
+						elif cube_position == 2:
+							adj_side = (side_idx - 2) % 4 + 1
 							self.back_pif_paf(main_side_idx=0, adj_side_idx=adj_side)
 
 							target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 2].color]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+							self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 							self.back_pif_paf(main_side_idx=0, adj_side_idx=target_idx)
 
-						elif i == 3:
-							adj_side = (side - 2) % 4 + 1
+						# Cube at the left of side
+						elif cube_position == 3:
+							adj_side = (side_idx - 2) % 4 + 1
 							target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 2].color]
 							rot_n = (target_idx - adj_side) % 4
 
-							self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+							self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 							self.back_pif_paf(main_side_idx=0, adj_side_idx=target_idx)
 
 			# Handle 5 side
-			for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=5)):
-				cube = self.rubcube.sides_map[5, cor_row, cor_col]
-				if cube.color == self.main_color:
-					adj_side = (abs(3 - i) + 1) % 4 + 1
+			for cube_position, (row_idx, col_idx) in enumerate(self.get_corner_indices()):
+				cube = self.rubcube.sides_map[5, row_idx, col_idx]
+				if cube.color == main_color:
+					adj_side = (abs(3 - cube_position) + 1) % 4 + 1
 					target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 2].color]
 					rot_n = (target_idx - (adj_side % 4 + 1)) % 4
 
-					self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+					self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 					for _ in range(3):
 						self.pif_paf(main_side_idx=0, adj_side_idx=(target_idx - 2) % 4 + 1)
 
-			handled_cubes = 0
-			for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=0)):
-				cube = self.rubcube.sides_map[0, cor_row, cor_col]
-				adj_idx = i + 1
-				if cube.color == self.main_color and self.rubcube.sides_map[adj_idx, 1, 1].color in cube.adjace_colors:
-					handled_cubes += 1
-
-	def collect_1_layer_corners(self):
+	def solve_1_layer_corners(self):
 		handled_cubes = 0
 		top_color = self.rubcube.sides_map[5, 1, 1].color
 
 		# Handle every cross cube at top layer
 		while handled_cubes < 4:
 			handled_cubes_before = handled_cubes
-			for i, (row, col) in enumerate(self.get_cross_indices(side_code=5)):
+			for i, (row, col) in enumerate(self.get_cross_indices()):
 				cube = self.rubcube.sides_map[5, row, col]
 				if cube.color != top_color and cube.adjace_colors[0] != top_color:
 					handled_cubes += 1
@@ -283,7 +287,7 @@ class Solver:
 					target_idx_2 = self.color_to_code[cube.adjace_colors[0]]
 					rot_n = (target_idx_2 - curr_side_idx) % 4
 
-					self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+					self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 					self.set_middle_corner(
 						side_1_idx=target_idx_1,
 						side_2_idx=target_idx_2,
@@ -310,11 +314,11 @@ class Solver:
 							)
 						elif cube.adjace_colors[0] != next_side_color:
 							handled_cubes += 1
-							self.rotate_side(side_code=side_idx, n=2)
-							self.rotate_side(side_code=5, n=2)
-							self.rotate_side(side_code=side_idx, n=2)
-							self.rotate_side(side_code=5, n=2)
-							self.rotate_side(side_code=side_idx, n=2)
+							self.rotate_side(side_idx=side_idx, n=2)
+							self.rotate_side(side_idx=5, n=2)
+							self.rotate_side(side_idx=side_idx, n=2)
+							self.rotate_side(side_idx=5, n=2)
+							self.rotate_side(side_idx=side_idx, n=2)
 
 						new_cube = self.rubcube.sides_map[side_idx, 1, 2]
 						if new_cube.color == side_color and new_cube.adjace_colors[0] == next_side_color:
@@ -331,11 +335,11 @@ class Solver:
 				if cube.color == side_color and next_side_color in cube.adjace_colors:
 					handled_cubes += 1
 
-	def collect_2_layer_crosspiece(self):
+	def solve_2_layer_crosspiece(self):
 		top_color = self.rubcube.sides_map[5, 1, 1].color
 
 		# Collect top crosspiece
-		cross_indices = self.get_cross_indices(side_code=5)
+		cross_indices = self.get_cross_indices()
 		for i in range(len(cross_indices)):
 			side = (abs(i - 3) - 2) % 4 + 1
 			cube = self.rubcube.sides_map[5, cross_indices[i][0], cross_indices[i][1]]
@@ -353,31 +357,31 @@ class Solver:
 				break
 
 			if previous_cube.color == cube.color:
-				self.rotate_side(side_code=((side - 2) % 4 + 1), n=1, byclockwise=True)
+				self.rotate_side(side_idx=((side - 2) % 4 + 1), n=1, byclockwise=True)
 				self.pif_paf(main_side_idx=0, adj_side_idx=((side - 3) % 4 + 1))
 				self.pif_paf(main_side_idx=0, adj_side_idx=((side - 3) % 4 + 1))
-				self.rotate_side(side_code=((side - 2) % 4 + 1), n=1, byclockwise=False)
+				self.rotate_side(side_idx=((side - 2) % 4 + 1), n=1, byclockwise=False)
 				break
 
 			elif cube.color == counter_cube.color:
-				self.rotate_side(side_code=((side - 2) % 4 + 1), n=1, byclockwise=True)
+				self.rotate_side(side_idx=((side - 2) % 4 + 1), n=1, byclockwise=True)
 				self.pif_paf(main_side_idx=0, adj_side_idx=((side - 3) % 4 + 1))
-				self.rotate_side(side_code=((side - 2) % 4 + 1), n=1, byclockwise=False)
+				self.rotate_side(side_idx=((side - 2) % 4 + 1), n=1, byclockwise=False)
 				break
 
 		else:
-			self.rotate_side(side_code=side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=side, n=1, byclockwise=True)
 			self.pif_paf(main_side_idx=0, adj_side_idx=((side - 2) % 4 + 1))
-			self.rotate_side(side_code=side, n=1, byclockwise=False)
-			self.rotate_side(side_code=((side - 3) % 4 + 1), n=1, byclockwise=True)
+			self.rotate_side(side_idx=side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=((side - 3) % 4 + 1), n=1, byclockwise=True)
 			self.pif_paf(main_side_idx=0, adj_side_idx=((side - 4) % 4 + 1))
 			self.pif_paf(main_side_idx=0, adj_side_idx=((side - 4) % 4 + 1))
-			self.rotate_side(side_code=((side - 3) % 4 + 1), n=1, byclockwise=False)
+			self.rotate_side(side_idx=((side - 3) % 4 + 1), n=1, byclockwise=False)
 
 		# Move crosspiece cubes to needed positions
 		# Is all crosspiece cubes in their positions
 		crosspiece_colors = list(map(
-			lambda cube: cube.adjace_colors[0], self.get_cross_cubes(side_code=5)
+			lambda cube: cube.adjace_colors[0], self.get_cross_cubes(side_idx=5)
 		))
 		pivot_color = crosspiece_colors[0]
 
@@ -391,7 +395,7 @@ class Solver:
 			target_side = self.color_to_code[pivot_color]
 			rot_n = (target_side - curr_side) % 4
 
-			self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+			self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 			return
 
 		# Is crosspiece colors opposite for each other
@@ -400,30 +404,30 @@ class Solver:
 			target_side = self.color_to_code[pivot_color]
 			rot_n = (target_side - curr_side) % 4
 
-			self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+			self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 
 			acting_side = target_side % 4 + 1
 
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=False)
 
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
 
 			acting_side = (target_side - 2) % 4 + 1
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=acting_side, n=1, byclockwise=False)
 			return
 
 		for i, color in enumerate(crosspiece_colors):
@@ -432,37 +436,37 @@ class Solver:
 				curr_side = (abs(i - 3) - 2) % 4 + 1
 				acting_side = curr_side
 
-				self.rotate_side(side_code=acting_side, n=1, byclockwise=True)
-				self.rotate_side(side_code=5, n=1, byclockwise=True)
-				self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
-				self.rotate_side(side_code=5, n=1, byclockwise=True)
-				self.rotate_side(side_code=acting_side, n=1, byclockwise=True)
-				self.rotate_side(side_code=5, n=1, byclockwise=True)
-				self.rotate_side(side_code=5, n=1, byclockwise=True)
-				self.rotate_side(side_code=acting_side, n=1, byclockwise=False)
+				self.rotate_side(side_idx=acting_side, n=1, byclockwise=True)
+				self.rotate_side(side_idx=5, n=1, byclockwise=True)
+				self.rotate_side(side_idx=acting_side, n=1, byclockwise=False)
+				self.rotate_side(side_idx=5, n=1, byclockwise=True)
+				self.rotate_side(side_idx=acting_side, n=1, byclockwise=True)
+				self.rotate_side(side_idx=5, n=1, byclockwise=True)
+				self.rotate_side(side_idx=5, n=1, byclockwise=True)
+				self.rotate_side(side_idx=acting_side, n=1, byclockwise=False)
 
 				target_side = self.color_to_code[self.rubcube.sides_map[curr_side, 2, 1].color]
 				rot_n = (target_side - curr_side) % 4
 
-				self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+				self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 				return
 
-	def collect_2_layer_corners(self):
+	def solve_2_layer_corners(self):
 		# Get color of side which opposite of main side
 		top_color = self.rubcube.sides_map[5, 1, 1].color
 		
 		# Get target colors of lateral sides
 		target_lateral_sides_colors = [set([top_color]) for _ in range(4)]
 		for i in range(4):
-			side_code = (i + 2) if i % 2 == 0 else i
+			side_idx = (i + 2) if i % 2 == 0 else i
 
-			curr_color = self.rubcube.sides_map[side_code, 1, 1].color
-			next_color = self.rubcube.sides_map[(side_code - 2) % 4 + 1, 1, 1].color
+			curr_color = self.rubcube.sides_map[side_idx, 1, 1].color
+			next_color = self.rubcube.sides_map[(side_idx - 2) % 4 + 1, 1, 1].color
 
 			target_lateral_sides_colors[i].add(curr_color)
 			target_lateral_sides_colors[i].add(next_color)
 
-		corner_cubes_coords = self.get_corner_indices(side_code=5)
+		corner_cubes_coords = self.get_corner_indices()
 
 		pivot_cube_idx = None
 		while pivot_cube_idx is None:
@@ -477,20 +481,20 @@ class Solver:
 					pivot_cube_idx = i
 
 			if pivot_cube_idx is None:
-				self.move_corner_cubes(side_code=5, pivot_cube_idx=1)
+				self.move_corner_cubes(side_idx=5, pivot_cube_idx=1)
 
 		corner_cubes = tuple(
 			map(lambda cube: set(cube.color).union(cube.adjace_colors),
-				self.get_corner_cubes(side_code=5)
+				self.get_corner_cubes(side_idx=5)
 			)
 		)
 
 		# opposite the pivot cube
 		oppos_cube = corner_cubes[(pivot_cube_idx + 2) % 4]
 		if oppos_cube == target_lateral_sides_colors[(pivot_cube_idx + 1) % 4]:
-			self.move_corner_cubes(side_code=5, pivot_cube_idx=pivot_cube_idx, byclockwise=True)
+			self.move_corner_cubes(side_idx=5, pivot_cube_idx=pivot_cube_idx, byclockwise=True)
 		elif oppos_cube == target_lateral_sides_colors[(pivot_cube_idx + 3) % 4]:
-			self.move_corner_cubes(side_code=5, pivot_cube_idx=pivot_cube_idx, byclockwise=False)
+			self.move_corner_cubes(side_idx=5, pivot_cube_idx=pivot_cube_idx, byclockwise=False)
 
 		for i in range(4):
 			cube = self.rubcube.sides_map[5, 2, 2]
@@ -498,129 +502,147 @@ class Solver:
 				back_cube = self.rubcube.sides_map[1, 2, 2]
 
 				if back_cube.color == top_color:
-					self.rotate_corner_cube(side_code=5, cube_idx=0, byclockwise=False)
+					self.rotate_corner_cube(side_idx=5, cube_idx=0, byclockwise=False)
 				else:
-					self.rotate_corner_cube(side_code=5, cube_idx=0, byclockwise=True)
+					self.rotate_corner_cube(side_idx=5, cube_idx=0, byclockwise=True)
 
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
 
 	def pif_paf(self, main_side_idx:int, adj_side_idx:int):
 		side_1 = adj_side_idx
 		side_2 = counter_side[main_side_idx]
 
-		self.rotate_side(side_code=side_1, n=1, byclockwise=True)
-		self.rotate_side(side_code=side_2, n=1, byclockwise=True)
-		self.rotate_side(side_code=side_1, n=1, byclockwise=False)
-		self.rotate_side(side_code=side_2, n=1, byclockwise=False)
+		self.rotate_side(side_idx=side_1, n=1, byclockwise=True)
+		self.rotate_side(side_idx=side_2, n=1, byclockwise=True)
+		self.rotate_side(side_idx=side_1, n=1, byclockwise=False)
+		self.rotate_side(side_idx=side_2, n=1, byclockwise=False)
 
 	def back_pif_paf(self, main_side_idx:int, adj_side_idx:int):
 		side_1 = adj_side_idx
 		side_2 = counter_side[main_side_idx]
 
-		self.rotate_side(side_code=side_2, n=1, byclockwise=True)
-		self.rotate_side(side_code=side_1, n=1, byclockwise=True)
-		self.rotate_side(side_code=side_2, n=1, byclockwise=False)
-		self.rotate_side(side_code=side_1, n=1, byclockwise=False)
+		self.rotate_side(side_idx=side_2, n=1, byclockwise=True)
+		self.rotate_side(side_idx=side_1, n=1, byclockwise=True)
+		self.rotate_side(side_idx=side_2, n=1, byclockwise=False)
+		self.rotate_side(side_idx=side_1, n=1, byclockwise=False)
 
-	def rotate_corner_cube(self, side_code:int, cube_idx:int, byclockwise:bool=True):
-		lateral_sides = adjacent_sides_codes[side_code]
+	def rotate_corner_cube(self, side_idx:int, cube_idx:int, byclockwise:bool=True):
+		lateral_sides = adjacent_sides_codes[side_idx]
 
 		left_side = lateral_sides[cube_idx]
 		back_side = lateral_sides[(cube_idx + 1) % 4]
 
 		if byclockwise:
 			for _ in range(2):
-				self.rotate_side(side_code=back_side, n=1, byclockwise=True)
-				self.rotate_side(side_code=left_side, n=1, byclockwise=False)
-				self.rotate_side(side_code=back_side, n=1, byclockwise=False)
-				self.rotate_side(side_code=left_side, n=1, byclockwise=True)
+				self.rotate_side(side_idx=back_side, n=1, byclockwise=True)
+				self.rotate_side(side_idx=left_side, n=1, byclockwise=False)
+				self.rotate_side(side_idx=back_side, n=1, byclockwise=False)
+				self.rotate_side(side_idx=left_side, n=1, byclockwise=True)
 		else:
 			for _ in range(2):
-				self.rotate_side(side_code=left_side, n=1, byclockwise=False)
-				self.rotate_side(side_code=back_side, n=1, byclockwise=True)
-				self.rotate_side(side_code=left_side, n=1, byclockwise=True)
-				self.rotate_side(side_code=back_side, n=1, byclockwise=False)
+				self.rotate_side(side_idx=left_side, n=1, byclockwise=False)
+				self.rotate_side(side_idx=back_side, n=1, byclockwise=True)
+				self.rotate_side(side_idx=left_side, n=1, byclockwise=True)
+				self.rotate_side(side_idx=back_side, n=1, byclockwise=False)
 
 
-	def move_corner_cubes(self, side_code:int, pivot_cube_idx:int, n:int=1, byclockwise:bool=False):
+	def move_corner_cubes(self, side_idx:int, pivot_cube_idx:int, n:int=1, byclockwise:bool=False):
 		n %= 4
 		if n > 2:
 			n = 1
 			byclockwise = not byclockwise
 		
-		lateral_sides = adjacent_sides_codes[side_code]
+		lateral_sides = adjacent_sides_codes[side_idx]
 		lateral_sides = lateral_sides[pivot_cube_idx:] + lateral_sides[:pivot_cube_idx]
 
-		top_side = side_code
+		top_side = side_idx
 		front_side = lateral_sides[0]
 		right_side = lateral_sides[1]
 		left_side = lateral_sides[-1]
 
 		if byclockwise:
-			self.rotate_side(side_code=left_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=right_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=left_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=right_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=left_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=right_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=left_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=right_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=False)
 
 		else:
-			self.rotate_side(side_code=top_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=right_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=left_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=True)
-			self.rotate_side(side_code=right_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=top_side, n=1, byclockwise=False)
-			self.rotate_side(side_code=left_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=right_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=left_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=True)
+			self.rotate_side(side_idx=right_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=top_side, n=1, byclockwise=False)
+			self.rotate_side(side_idx=left_side, n=1, byclockwise=True)
 
 	def set_middle_corner(self, side_1_idx:int, side_2_idx:int, corner_side:int):
 		if (side_1_idx - 2) % 4 + 1 == side_2_idx:
 			side_1_idx, side_2_idx = side_2_idx, side_1_idx
 
 		if corner_side == side_1_idx:
-			self.rotate_side(side_code=5, n=1, byclockwise=False)
-			self.rotate_side(side_code=side_2_idx, n=1, byclockwise=False)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=side_2_idx, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=False)
+			self.rotate_side(side_idx=side_2_idx, n=1, byclockwise=False)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=side_2_idx, n=1, byclockwise=True)
 			self.back_pif_paf(main_side_idx=0, adj_side_idx=side_1_idx)
 
 		elif corner_side == side_2_idx:
 			self.back_pif_paf(main_side_idx=0, adj_side_idx=side_1_idx)
-			self.rotate_side(side_code=5, n=1, byclockwise=False)
-			self.rotate_side(side_code=side_2_idx, n=1, byclockwise=False)
-			self.rotate_side(side_code=5, n=1, byclockwise=True)
-			self.rotate_side(side_code=side_2_idx, n=1, byclockwise=True)
+			self.rotate_side(side_idx=5, n=1, byclockwise=False)
+			self.rotate_side(side_idx=side_2_idx, n=1, byclockwise=False)
+			self.rotate_side(side_idx=5, n=1, byclockwise=True)
+			self.rotate_side(side_idx=side_2_idx, n=1, byclockwise=True)
 
-	def get_cross_cubes(self, side_code:int):
-		side = self.rubcube.sides_map[side_code]
+	def get_cross_cubes(self, side_idx:int) -> list:
+		"""Returns array of cross cubes counter clockwise. Order example:
+			#2#
+			3#1
+			#0#
+		"""
+		side = self.rubcube.sides_map[side_idx]
 		return [side[2, 1], side[1, 2], side[0, 1], side[1, 0]]
 
-	def get_corner_cubes(self, side_code:int):
-		side = self.rubcube.sides_map[side_code]
+	def get_corner_cubes(self, side_idx:int) -> list:
+		"""Returns array of corner cubes counter clockwise. Order example:
+			2#1
+			###
+			3#0
+		"""
+		side = self.rubcube.sides_map[side_idx]
 		return [side[2, 2], side[0, 2], side[0, 0], side[2, 0]]
 
-	def get_cross_indices(self, side_code:int):
-		side = self.rubcube.sides_map[side_code]
+	def get_cross_indices(self) -> list:
+		"""Returns array of cross cubes indices counter clockwise. Order example:
+			#2#
+			3#1
+			#0#
+		"""
 		return [(2, 1), (1, 2), (0, 1), (1, 0)]
 
-	def get_corner_indices(self, side_code:int):
-		side = self.rubcube.sides_map[side_code]
+	def get_corner_indices(self) -> list:
+		"""Returns array of corner cubes indices counter clockwise. Order example:
+			2#1
+			###
+			3#0
+		"""
 		return [(2, 2), (0, 2), (0, 0), (2, 0)]
 
 	def get_main_side(self):
-		best_side = {"side_code": None, "cross_weight": 0}
+		best_side = {"side_idx": None, "cross_weight": 0}
 
-		for side_code in range(6):
-			side_color = self.rubcube.sides_map[side_code, 1, 1].color
+		for side_idx in range(6):
+			side_color = self.rubcube.sides_map[side_idx, 1, 1].color
 
 			cross_weight = int()
 			next_colors = list()
 
-			for i, (cross_row, cross_col) in enumerate(self.get_cross_indices(side_code=side_code)):
-				cube = self.rubcube.sides_map[side_code, cross_row, cross_col]
+			for i, (cross_row, cross_col) in enumerate(self.get_cross_indices()):
+				cube = self.rubcube.sides_map[side_idx, cross_row, cross_col]
 				if cube.color == side_color:
 					if not next_colors:
 						adj_colors = adjacent_sides_colors[side_color]
@@ -633,10 +655,10 @@ class Solver:
 						cross_weight += 1
 
 			if best_side['cross_weight'] < cross_weight:
-				best_side['side_code'] = side_code
+				best_side['side_idx'] = side_idx
 				best_side['cross_weight'] = cross_weight
 
-		return best_side['side_code']
+		return best_side['side_idx']
 
 	def optim_solving_steps(self):
 		step_idx = 0
