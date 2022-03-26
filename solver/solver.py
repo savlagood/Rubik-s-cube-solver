@@ -52,6 +52,12 @@ class Solver:
 		self.solving_steps.append(f"{side_code}{n}{int(byclockwise)}")
 		self.rubcube.rotate_side(side_idx=side_code, n=n, byclockwise=byclockwise)
 
+	def check(self):
+		pass
+		# print("==="*7)
+		# print(self.solving_steps)
+		# print(self.rubcube.sides_map)
+
 	def solve(self) -> list:
 		"""Looking for the optimal solution out of six possible solutions.
 		Each of six sides may be main one
@@ -71,13 +77,20 @@ class Solver:
 			self.color_to_code_init()
 			self.main_color = self.rubcube.sides_map[0][1, 1].color
 			# Solving
+			# self.check()
 			self.collect_0_layer_crosspiece()
+			# self.check()
 			self.collect_0_layer_corners()
+			# self.check()
 			self.collect_1_layer_corners()
+			# self.check()
 			self.collect_2_layer_crosspiece()
+			# self.check()
 			self.collect_2_layer_corners()
+			# self.check()
 			# Optimization
 			self.optim_solving_steps()
+			self.check()
 			# Is best this solving way?
 			if len(best_solving_steps) > len(self.solving_steps) or not best_solving_steps:
 				best_side = main_side_code
@@ -178,31 +191,28 @@ class Solver:
 
 	def collect_0_layer_corners(self):
 		handled_cubes = 0
-
 		while handled_cubes < 4:
 			# Handle 0 side
 			for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=0)):
 				cube = self.rubcube.sides_map[0, cor_row, cor_col]
 				if cube.color == self.main_color:
-					handled_cubes += 1
-
 					adj_side = i + 1
-					target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 0, 2].color]
-					rot_n = (target_idx - adj_side) % 4
-
-					self.pif_paf(main_side_idx=0, adj_side_idx=adj_side)
-					self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
-					self.back_pif_paf(main_side_idx=0, adj_side_idx=target_idx)
+					if self.rubcube.sides_map[adj_side, 1, 1].color not in cube.adjace_colors:
+						target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 0, 2].color]
+						rot_n = (target_idx - adj_side) % 4
+						
+						self.pif_paf(main_side_idx=0, adj_side_idx=adj_side)
+						self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
+						self.back_pif_paf(main_side_idx=0, adj_side_idx=target_idx)
 
 			# Handle 1-4 sides
 			for side in range(1, 5):
 				for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=side)):
 					cube = self.rubcube.sides_map[side, cor_row, cor_col]
-					if cube.color == self.main_color:
-						handled_cubes += 1
 
+					if cube.color == self.main_color:
 						if i == 0:
-							adj_side = side % 5 + 1
+							adj_side = side % 4 + 1
 							target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 0].color]
 							rot_n = (target_idx - adj_side) % 4
 
@@ -210,7 +220,7 @@ class Solver:
 							self.pif_paf(main_side_idx=0, adj_side_idx=(target_idx - 2) % 4 + 1)
 
 						elif i == 1:
-							adj_side = side % 5 + 1
+							adj_side = side % 4 + 1
 							self.pif_paf(main_side_idx=0, adj_side_idx=side)
 
 							target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 0].color]
@@ -241,8 +251,6 @@ class Solver:
 			for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=5)):
 				cube = self.rubcube.sides_map[5, cor_row, cor_col]
 				if cube.color == self.main_color:
-					handled_cubes += 1
-
 					adj_side = (abs(3 - i) + 1) % 4 + 1
 					target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 2, 2].color]
 					rot_n = (target_idx - (adj_side % 4 + 1)) % 4
@@ -250,6 +258,13 @@ class Solver:
 					self.rotate_side(side_code=5, n=rot_n, byclockwise=True)
 					for _ in range(3):
 						self.pif_paf(main_side_idx=0, adj_side_idx=(target_idx - 2) % 4 + 1)
+
+			handled_cubes = 0
+			for i, (cor_row, cor_col) in enumerate(self.get_corner_indices(side_code=0)):
+				cube = self.rubcube.sides_map[0, cor_row, cor_col]
+				adj_idx = i + 1
+				if cube.color == self.main_color and self.rubcube.sides_map[adj_idx, 1, 1].color in cube.adjace_colors:
+					handled_cubes += 1
 
 	def collect_1_layer_corners(self):
 		handled_cubes = 0
@@ -276,32 +291,45 @@ class Solver:
 					)
 
 			if handled_cubes_before == handled_cubes:
-				break
+				changed = False
+				for side_idx in adjacent_sides_codes[0]:
+					side_color = self.rubcube.sides_map[side_idx, 1, 1].color
+					cube = self.rubcube.sides_map[side_idx, 1, 2]
 
-		# Handle every corner cube at middle layer
-		if handled_cubes < 4:
-			for side_idx in adjacent_sides_codes[0]:
-				side_color = self.rubcube.sides_map[side_idx, 1, 1].color
+					next_side_idx = side_idx % 4 + 1
+					next_side_color = self.rubcube.sides_map[next_side_idx, 1, 1].color
 
-				next_side_idx = side_idx % 4 + 1
-				next_side_color = self.rubcube.sides_map[next_side_idx, 1, 1].color
+					top_color = self.rubcube.sides_map[5, 1, 1].color
+					if cube.color != top_color and cube.adjace_colors[0] != top_color:
+						changed = True
+						if cube.color != side_color:
+							self.set_middle_corner(
+								side_1_idx=side_idx,
+								side_2_idx=next_side_idx,
+								corner_side=next_side_idx,
+							)
+						elif cube.adjace_colors[0] != next_side_color:
+							handled_cubes += 1
+							self.rotate_side(side_code=side_idx, n=2)
+							self.rotate_side(side_code=5, n=2)
+							self.rotate_side(side_code=side_idx, n=2)
+							self.rotate_side(side_code=5, n=2)
+							self.rotate_side(side_code=side_idx, n=2)
 
-				cube = self.rubcube.sides_map[side_idx, 1, 2]
+						new_cube = self.rubcube.sides_map[side_idx, 1, 2]
+						if new_cube.color == side_color and new_cube.adjace_colors[0] == next_side_color:
+							handled_cubes += 1
 
-				if cube.color == next_side_color and cube.adjace_colors[0] == side_color:
+				if not changed:
+					break
+
+			handled_cubes = 0
+			for side in range(1, 4+1):
+				side_color = self.rubcube.sides_map[side, 1, 1].color
+				cube = self.rubcube.sides_map[side, 1, 2]
+				next_side_color = self.rubcube.sides_map[side % 4 + 1, 1, 1].color
+				if cube.color == side_color and next_side_color in cube.adjace_colors:
 					handled_cubes += 1
-
-					self.set_middle_corner(
-						side_1_idx=side_idx,
-						side_2_idx=next_side_idx,
-						corner_side=next_side_idx
-					)
-					self.rotate_side(side_code=5, n=2, byclockwise=True)
-					self.set_middle_corner(
-						side_1_idx=side_idx,
-						side_2_idx=next_side_idx,
-						corner_side=next_side_idx
-					)
 
 	def collect_2_layer_crosspiece(self):
 		top_color = self.rubcube.sides_map[5, 1, 1].color
