@@ -1,81 +1,90 @@
-import socket
-import sys
 import time
+import json
+import socket
+import threading
 
-ev3_massage = None
+from color_detector import rgb_to_color_name
+from datatypes import RubiksCube
+from solver import Solver
+from display import Display
+
+def assemble_the_cube(solving_steps:list, conn:socket.socket, addr:tuple) -> None:
+	"""
+	Solves the Rubik's cube by solving_steps.
+	Rotates sides at display synchronously with robot.
+	"""
+	# Starts solving
+	conn.sendto("solving".encode(), addr)
+
+	time.sleep(1)
+	print("[ Starts solving! ]")
+	for i, step in enumerate(solving_steps[:]):
+		print(f"{i} / {len(solving_steps)}")
+		side_code, n, byclockwise = map(int, list(step))
+		conn.sendto(step.encode(), addr)
+		for _ in range(n):
+			display.rotate_side(side_code=side_code, byclockwise=bool(byclockwise))
+
+		resp = conn.recv(1024)
+		if not resp:
+			# Error
+			print("[ Robot disconnected! ]")
+			return
+
+	print("[ Solving finished! ]")
+
+HOST = "10.42.0.1"
+PORT = 56780
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-	s.bind(('10.42.0.1', 56789))  # your PC's Bluetooth IP & PORT
-	s.listen(1)
-	print('Start program...')
-	while True:
-		conn, addr = s.accept()
-		with conn:
-			while True:
-				ev3_massage = conn.recv(1024)
-				if ev3_massage is not None:
-					ev3_massage = ev3_massage.decode()
-					print('get ' + ev3_massage)
-					time.sleep(1.0)
-					if ev3_massage == 'BACKSPACE':
-						break
-					ev3_massage = None
-			print('End program')
+	# Creates a server at HOST and PORT
+	s.bind((HOST, PORT))
+	s.listen()
+	print(f"[ Server started at host:{HOST}, port:{PORT} ]")
+
+	# Accepts the connection
+	conn, addr = s.accept()
+	with conn:
+		print(f"[ Connected by {addr} ]")
+		# Checks test message
+		test_message = conn.recv(1024)
+		if not test_message:
+			# Error at robot side
+			print("[ Test message didn't recived ]")
+			s.close()
 			sys.exit()
 
+		print("[ Test message recived! ]")
+		conn.sendto("scan".encode(), addr)
+
+		# Gets raw colors (red, green blue at percents)
+		raw_colors = conn.recv(1024)
+		if not raw_colors:
+			print("[ Colors didn't recived ]")
+			s.close()
+			sys.exit()
+
+		print("[ Colors recived! ]")
+		raw_colors = json.loads(raw_colors.decode())
+		# print(raw_colors)
+		sides_map = rgb_to_color_name(raw_colors)
+
+		rubcube = RubiksCube(sides_map)
+		solver = Solver(rubcube)
+		solving_steps = solver.solve()
+
+		display = Display(rubcube)
+
+		assembler = threading.Thread(target=assemble_the_cube, args=(solving_steps, conn, addr))
+		assembler.start()
+
+		restart = True
+		while restart:
+			try:
+				display.run()
+				restart = False
+			except:
+				print("[ Error at starting display. Restarts display ]")
 
 
-
-
-
-
-
-
-
-
-
-
-
-# # echo-client.py
-
-# # import socket
-
-# # HOST = "127.0.0.1"  # The server's hostname or IP address
-# # PORT = 65432  # The port used by the server
-
-# # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-# # 	s.connect((HOST, PORT))
-# # 	s.sendall(b"Hello, world")
-# # 	data = s.recv(1024)
-
-# # print(f"Received {data!r}")
-
-
-# # import socket
-
-# # sock = socket.socket()
-# # sock.bind(('10.42.0.1', 9090))
-# # sock.listen(1)
-# # conn, addr = sock.accept()
-
-# # print('connected:', addr)
-
-# # while True:
-# # 	data = conn.recv(1024)
-# # 	if not data:
-# # 		break
-# # 	conn.send(data.upper())
-
-# # conn.close()
-
-
-# import socket
-
-# sock = socket.socket()
-# sock.connect(('127.0.0.1', 9876))
-# sock.send('hello, world!'.encode('utf-8'))
-
-# data = sock.recv(1024)
-# sock.close()
-
-# print(data)
+print("[ Server stopped ]")

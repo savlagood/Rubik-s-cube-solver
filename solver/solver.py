@@ -19,8 +19,8 @@ side_idx_by_best_side = {
 class Solver:
 	"""
 	Some most common variable names:
-	- side_idx - code of the side: 0 - Top, 1 - front, 2 - left, 3 - back,
-				  4 - right, 5 - bottom.
+	- side_idx - code of the side: 
+		0 - Top, 1 - front, 2 - left, 3 - back, 4 - right, 5 - bottom.
 	- 
 	"""
 	def __init__(self, rubcube:RubiksCube) -> None:
@@ -40,7 +40,8 @@ class Solver:
 			self.color_to_code[code] = color
 
 	def rotate_side(self, side_idx:int, n:int, byclockwise:bool=True) -> None:
-		"""Rotate self.rubcube side with side_idx n times byclockwise.
+		"""
+		Rotate self.rubcube side with side_idx n times byclockwise.
 		Add rotation code to self.solving_steps
 		"""
 		n %= 4
@@ -53,7 +54,8 @@ class Solver:
 		self.rubcube.rotate_side(side_idx=side_idx, n=n, byclockwise=byclockwise)
 
 	def solve(self) -> list:
-		"""Looking for the optimal solution out of six possible solutions.
+		"""
+		Looking for the optimal solution out of six possible solutions.
 		Each of six sides may be main one
 		"""
 		rubcube = copy.deepcopy(self.rubcube)
@@ -271,6 +273,7 @@ class Solver:
 						self.pif_paf(main_side_idx=0, adj_side_idx=(target_idx - 2) % 4 + 1)
 
 	def solve_1_layer_corners(self):
+		"""Solves the corners of the middle layer."""
 		handled_cubes = 0
 		top_color = self.rubcube.sides_map[5, 1, 1].color
 

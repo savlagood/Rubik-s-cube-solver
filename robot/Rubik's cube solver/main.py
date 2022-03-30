@@ -1,6 +1,8 @@
 #!/usr/bin/env pybricks-micropython
+import socket
 import time
 import sys
+import json
 
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
@@ -249,103 +251,73 @@ class Robot:
 		return matrix
 
 if __name__ == "__main__":
-	# r = Robot()
-	# r.color_sensor.rgb()
+	r = Robot()
+	r.color_sensor.rgb()
 
-	print(sys.version)
+	HOST = "10.42.0.1"
+	PORT = 56780
+	server = (HOST, PORT)
 
-
-
-	import socket
-	import sys
-	import time
-	ev3_message = None
-
-
+	# Connecting to server
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.connect(('10.42.0.1', 56789))    # your PC's Bluetooth IP & PORT
-	print('connected')
-	ev3_message = 'Hello other side!'
-	s.send(ev3_message.encode())
-	time.sleep(0.5)
+	s.connect((HOST, PORT))
+	print("[ Connected to host:" + HOST + ", port:" + str(PORT) + " ]")
 
-	ev3_message = 'BACKSPACE'
-	s.send(ev3_message.encode())
+	# Sending test message
+	s.sendto("hello".encode(), server)
+	while True:
+		# Gets command from server
+		cmd = s.recv(1024).decode()
+		if not cmd:
+			# Error
+			print("[ Server disconnected. Error at server! ]")
+			break
 
-	print('End program')
+		elif cmd == "scan":
+			# Scanning
+			print("[ Starts scanning ]")
+
+			cube_colors = r.scan_cube()
+			r.hand_rotate(2, hand_raised=True)
+			r.rotate_platform(1)
+
+			print('Cube colors:')
+			print(cube_colors)
+			print("[ Scanned ]")
+
+			s.sendto(json.dumps(cube_colors), server)
+			print("[ Colors sended to server ]")
+
+		elif cmd == "solving":
+			print("[ Starts solving the Rubik's cube! ]")
+
+		else:
+			# Solving
+			side_code, n, byclockwise = map(int, list(cmd))
+			r.rotate_side(side_code, n, byclockwise)
+			s.sendto("ok".encode(), server)
+
+
+	# Stopping client
+	print("[ Client stopped ]")
+	time.sleep(1)
 	sys.exit()
 
 
 
-	
 
-	# import socket
-	# sock = socket.socket()
-	# sock.bind(('', 9876))
-	# sock.listen(1)
-	# conn, addr = sock.accept()
+# r = Robot()
+# r.color_sensor.rgb()
 
-	# print('connected:', addr)
+# print('Cube colors:')
+# print(r.scan_cube())
+# r.hand_rotate(2, hand_raised=True)
+# r.rotate_platform(1)
 
-	# while True:
-	# 	data = conn.recv(1024)
-	# 	if not data:
-	# 		break
-	# 	conn.send(data.upper())
+# solving_steps = ['511', '311', '110', '520', '211', '510', '310', '520', '311', '010', '310', '011', '111', '010', '110', '011', '111', '010', '110', '010', '411', '011', '410', '010', '411', '011', '410', '010', '411', '011', '410', '111', '010', '110', '010', '410', '011', '411', '020', '110', '011', '111', '011', '211', '010', '210', '021', '411', '010', '410', '010', '310', '011', '311', '011', '210', '011', '211', '011', '311', '010', '310', '411', '111', '011', '110', '010', '111', '011', '110', '010', '410', '311', '011', '310', '011', '311', '021', '310', '010', '211', '010', '410', '011', '210', '010', '411', '011', '111', '010', '310', '011', '110', '010', '311', '410', '111', '411', '110', '410', '111', '411', '110', '011', '410', '111', '411', '110', '410', '111', '411', '110', '011', '410', '111', '411', '110', '410', '111', '411', '110', '021']
 
-	# conn.close()
-
-	
-	# import socket, time
-
-	# # host = socket.gethostbyname(socket.gethostname()) # gethostname - получает имя хоста, gethostbyname - получаеет адрес хоста по имеени
-	# host = "127.0.0.1"
-	# port = 65432 # Порт
-
-	# clients = [] # Клиенты
-
-	# s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Устанавливаем протокол TCP/IP
-	# s.bind((host, port)) # Поднятие сервера на host - имени и port - порте
-
-	# quit = False
-	# print("[ Server Started ]")
-
-	# while not quit:
-	# 	try:
-	# 		data, addr = s.recvfrom(1024) # data - сообщение пользователя, addr - адрес пользователя, recvfrom - размер сообщения
-
-	# 		if addr not in clients: # если клиеента нет в клиентах, то добавить в клиенты
-	# 			clients.append(addr)
-
-	# 		itsatime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime()) # текущеее время, преобразованное в строку
-
-	# 		print("[ " + addr[0] + " ]=[ " + addr[1] + " ]=[ " + itsatime + " ]/", end = "") # вывод в консоль информации о пользователе, время
-	# 		print(data.decode('utf-8')) # вывод в консоль декодированного из кодировки utf-8 сообщения пользователя
-
-	# 		for client in clients: # рассылка сообщеения всем клиентам кроме текущего
-	# 			if addr != client:
-	# 				s.sendto(data, client)
-
-	# 	except: # остановка сервеера
-	# 		print("\n[ Server Stoped ]")
-	# 		quit = True
-	# 		exit()
-	# 		break
-
-	# s.close() # закрытие порта
-
-
-	# print('Cube colors:')
-	# print(r.scan_cube())
-	# r.hand_rotate(2, hand_raised=True)
-	# r.rotate_platform(1)
-
-	# solving_steps = ['511', '311', '110', '520', '211', '510', '310', '520', '311', '010', '310', '011', '111', '010', '110', '011', '111', '010', '110', '010', '411', '011', '410', '010', '411', '011', '410', '010', '411', '011', '410', '111', '010', '110', '010', '410', '011', '411', '020', '110', '011', '111', '011', '211', '010', '210', '021', '411', '010', '410', '010', '310', '011', '311', '011', '210', '011', '211', '011', '311', '010', '310', '411', '111', '011', '110', '010', '111', '011', '110', '010', '410', '311', '011', '310', '011', '311', '021', '310', '010', '211', '010', '410', '011', '210', '010', '411', '011', '111', '010', '310', '011', '110', '010', '311', '410', '111', '411', '110', '410', '111', '411', '110', '011', '410', '111', '411', '110', '410', '111', '411', '110', '011', '410', '111', '411', '110', '410', '111', '411', '110', '021']
-
-	# print(len(solving_steps))
-	# for i, step in enumerate(solving_steps[:]):
-	# 	print(i, '/', len(solving_steps))
-	# 	side_code, n, byclockwise = map(int, list(step))
-	# 	r.rotate_side(side_code, n, byclockwise)
-
-	time.sleep(1)
+# print(len(solving_steps))
+# for i, step in enumerate(solving_steps[:]):
+# 	print(i, '/', len(solving_steps))
+# 	side_code, n, byclockwise = map(int, list(step))
+# 	r.rotate_side(side_code, n, byclockwise)
