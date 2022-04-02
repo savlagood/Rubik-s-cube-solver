@@ -251,18 +251,18 @@ class Robot:
 		return matrix
 
 if __name__ == "__main__":
-	r = Robot()
-	r.color_sensor.rgb()
-
+	print(sys.version)
 	HOST = "10.42.0.1"
-	PORT = 56780
+	# HOST = "127.0.0.1"
+	PORT = 56789
 	server = (HOST, PORT)
 
 	# Connecting to server
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect((HOST, PORT))
 	print("[ Connected to host:" + HOST + ", port:" + str(PORT) + " ]")
-
+	r = Robot()
+	r.color_sensor.rgb()
 	# Sending test message
 	s.sendto("hello".encode(), server)
 	while True:
@@ -273,7 +273,7 @@ if __name__ == "__main__":
 			print("[ Server disconnected. Error at server! ]")
 			break
 
-		elif cmd == "scan":
+		elif cmd == "scan" or cmd == "rescan":
 			# Scanning
 			print("[ Starts scanning ]")
 

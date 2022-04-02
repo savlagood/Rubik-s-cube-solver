@@ -177,7 +177,10 @@ class Solver:
 							self.rotate_side(0, rot_n, byclockwise=False)
 
 			# Handle 5 side
-			for cube_position, (row_idx, col_idx) in enumerate(self.get_cross_indices()):
+			sequence = [0, 2, 1, 3]
+			cross_indices = self.get_cross_indices()
+			for cube_position in sequence:
+				row_idx, col_idx = cross_indices[cube_position]
 				cube = self.rubcube.sides_map[5, row_idx, col_idx]
 				if cube.color == main_color:
 					adj_side = (cube_position + 2 * (cube_position % 2 == 0)) % 5
@@ -608,7 +611,11 @@ class Solver:
 			#0#
 		"""
 		side = self.rubcube.sides_map[side_idx]
-		return [side[2, 1], side[1, 2], side[0, 1], side[1, 0]]
+		cubes = []
+		for pair in self.get_cross_indices():
+			cubes.append(side[pair[0], pair[1]])
+		
+		return cubes
 
 	def get_corner_cubes(self, side_idx:int) -> list:
 		"""Returns array of corner cubes counter clockwise. Order example:
@@ -617,7 +624,11 @@ class Solver:
 			3#0
 		"""
 		side = self.rubcube.sides_map[side_idx]
-		return [side[2, 2], side[0, 2], side[0, 0], side[2, 0]]
+		cubes = []
+		for pair in self.get_corner_indices():
+			cubes.append(side[pair[0], pair[1]])
+
+		return cubes
 
 	def get_cross_indices(self) -> list:
 		"""Returns array of cross cubes indices counter clockwise. Order example:

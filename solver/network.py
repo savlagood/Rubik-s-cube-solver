@@ -51,7 +51,7 @@ def assemble_the_cube(solving_steps:list, conn:socket.socket, addr:tuple) -> Non
 	print("[ Solving finished! ]")
 
 HOST = "10.42.0.1"
-PORT = 56780
+PORT = 56789
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 	# Creates a server at HOST and PORT
@@ -83,11 +83,25 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 				sys.exit()
 
 			print("[ Colors recived! ]")
+
 			raw_colors = json.loads(raw_colors.decode())
 			sides_map = rgb_to_color_name(raw_colors)
+			print(sides_map)
+
+			color_counter = {'r': 0, 'o': 0, 'w': 0, 'y': 0, 'g': 0, 'b': 0}
+			for side in sides_map:
+				for row in side:
+					for cube_color in row:
+						color_counter[cube_color] += 1
+
+			if min(color_counter.values()) != 6:
+				print("[ Rescanning ]")
+				conn.sendto("rescan".encode(), addr)
+				continue
 
 			rubcube = RubiksCube(sides_map)
 			solver = Solver(rubcube)
+
 			try:
 				# If solver.solve() raise exception then cube was scanned incorrectly
 				solving_steps = solver.solve()
@@ -119,5 +133,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 			except:
 				print("[ Error at starting display. Restarts display ]")
 
+	s.close()
 
 print("[ Server stopped ]")
