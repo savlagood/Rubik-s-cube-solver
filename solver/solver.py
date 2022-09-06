@@ -59,14 +59,14 @@ class Solver:
 		Each of six sides may be main one
 		"""
 		rubcube = copy.deepcopy(self.rubcube)
-		
+
 		best_side = -1
 		best_solving_steps = list()
 
 		for main_side_idx in range(5, 6):
 			# Clean solving steps
 			self.solving_steps = list()
-			# Clonning main rubcube
+			# Cloning main rubcube
 			self.rubcube = copy.deepcopy(rubcube)
 			self.rubcube.rotate_all_cube(target_side_idx=main_side_idx)
 			# Code the colors and get main_color (color of top central cube)
@@ -213,7 +213,7 @@ class Solver:
 					if self.rubcube.sides_map[adj_side, 1, 1].color not in cube.adjace_colors:
 						target_idx = self.color_to_code[self.rubcube.sides_map[adj_side, 0, 2].color]
 						rot_n = (target_idx - adj_side) % 4
-						
+
 						self.pif_paf(main_side_idx=0, adj_side_idx=adj_side)
 						self.rotate_side(side_idx=5, n=rot_n, byclockwise=True)
 						self.back_pif_paf(main_side_idx=0, adj_side_idx=target_idx)
@@ -460,7 +460,7 @@ class Solver:
 	def solve_2_layer_corners(self):
 		# Get color of side which opposite of main side
 		top_color = self.rubcube.sides_map[5, 1, 1].color
-		
+
 		# Get target colors of lateral sides
 		target_lateral_sides_colors = [set([top_color]) for _ in range(4)]
 		for i in range(4):
@@ -479,7 +479,7 @@ class Solver:
 			for i in range(4):
 				row, col = corner_cubes_coords[i]
 				cube = self.rubcube.sides_map[5, row, col]
-				
+
 				cube_colors = set(cube.color).union(cube.adjace_colors)
 				target_colors = target_lateral_sides_colors[i]
 
@@ -552,12 +552,17 @@ class Solver:
 				self.rotate_side(side_idx=back_side, n=1, byclockwise=False)
 
 
-	def move_corner_cubes(self, side_idx:int, pivot_cube_idx:int, n:int=1, byclockwise:bool=False):
+	def move_corner_cubes(
+						self,
+						side_idx: int,
+						pivot_cube_idx: int,
+						n: int=1,
+						byclockwise: bool=False):
 		n %= 4
 		if n > 2:
 			n = 1
 			byclockwise = not byclockwise
-		
+
 		lateral_sides = adjacent_sides_codes[side_idx]
 		lateral_sides = lateral_sides[pivot_cube_idx:] + lateral_sides[:pivot_cube_idx]
 
@@ -614,11 +619,11 @@ class Solver:
 		cubes = []
 		for pair in self.get_cross_indices():
 			cubes.append(side[pair[0], pair[1]])
-		
+
 		return cubes
 
 	def get_corner_cubes(self, side_idx:int) -> list:
-		"""Returns array of corner cubes counter clockwise. Order example:
+		"""Returns array of corner cubes counterclockwise. Order example:
 			2#1
 			###
 			3#0

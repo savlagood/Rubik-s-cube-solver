@@ -5,7 +5,7 @@ from shortcuts import (adjacent_sides_codes, colors_shortcuts,
 
 
 class Square:
-	def __init__(self, color:str, adjace_colors:list=None):
+	def __init__(self, color: str, adjace_colors: list=None):
 		self.color = color
 		self.color_name = colors_shortcuts[self.color]
 		self.adjace_colors = adjace_colors if adjace_colors is not None else list()

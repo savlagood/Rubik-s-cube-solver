@@ -1,3 +1,4 @@
+import sys
 import time
 import json
 import socket
@@ -50,89 +51,99 @@ def assemble_the_cube(solving_steps:list, conn:socket.socket, addr:tuple) -> Non
 
 	print("[ Solving finished! ]")
 
-HOST = "10.42.0.1"
-PORT = 56789
+if __name__ == "__main__":
+	HOST = "10.42.0.1"
+	#HOST = "192.168.137.1"
+	PORT = 56789
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-	# Creates a server at HOST and PORT
-	s.bind((HOST, PORT))
-	s.listen()
-	print(f"[ Server started at host:{HOST}, port:{PORT} ]")
+	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+		# Creates a server at HOST and PORT
+		s.bind((HOST, PORT))
+		s.listen()
+		print(f"[ Server started at host:{HOST}, port:{PORT} ]")
 
-	# Accepts the connection
-	conn, addr = s.accept()
-	with conn:
-		print(f"[ Connected by {addr} ]")
-		# Checks test message
-		test_message = conn.recv(1024)
-		if not test_message:
-			# Error at robot side
-			print("[ Test message didn't recived ]")
-			s.close()
-			sys.exit()
-
-		print("[ Test message recived! ]")
-		conn.sendto("scan".encode(), addr)
-
-		# Gets raw colors (red, green blue at percents)
-		while True:
-			raw_colors = conn.recv(1024)
-			if not raw_colors:
-				print("[ Colors didn't recived ]")
+		# Accepts the connection
+		conn, addr = s.accept()
+		with conn:
+			print(f"[ Connected by {addr} ]")
+			# Checks test message
+			test_message = conn.recv(1024)
+			if not test_message:
+				# Error at robot side
+				print("[ Test message didn't recived ]")
 				s.close()
 				sys.exit()
 
-			print("[ Colors recived! ]")
+			print("[ Test message recived! ]")
+			conn.sendto("scan".encode(), addr)
 
-			raw_colors = json.loads(raw_colors.decode())
-			sides_map = rgb_to_color_name(raw_colors)
-			print(sides_map)
+			# Gets raw colors (red, green blue at percents)
+			while True:
+				raw_colors = conn.recv(1024)
+				if not raw_colors:
+					print("[ Colors didn't recived ]")
+					s.close()
+					sys.exit()
 
-			color_counter = {'r': 0, 'o': 0, 'w': 0, 'y': 0, 'g': 0, 'b': 0}
-			for side in sides_map:
-				for row in side:
-					for cube_color in row:
-						color_counter[cube_color] += 1
+				print("[ Colors recived! ]")
 
-			if min(color_counter.values()) != 6:
-				print("[ Rescanning ]")
-				conn.sendto("rescan".encode(), addr)
-				continue
+				raw_colors = json.loads(raw_colors.decode())
+				sides_map = rgb_to_color_name(raw_colors)
+				print(sides_map)
 
-			rubcube = RubiksCube(sides_map)
-			solver = Solver(rubcube)
+				color_counter = {'r': 0, 'o': 0, 'w': 0, 'y': 0, 'g': 0, 'b': 0}
+				for side in sides_map:
+					for row in side:
+						for cube_color in row:
+							color_counter[cube_color] += 1
 
-			try:
-				# If solver.solve() raise exception then cube was scanned incorrectly
-				solving_steps = solver.solve()
-			except:
-				# Cube was scanned incorrectly
-				print("[ Rescanning ]")
-				conn.sendto("rescan".encode(), addr)
-				continue
+				if min(color_counter.values()) != 9 and max(color_counter.values()) != 9:
+					print(color_counter)
+					print("[ Rescanning ]")
+					conn.sendto("rescan".encode(), addr)
+					continue
 
-			if validation(solver.rubcube):
-				# Everything is awesome
-				break
-			else:
-				# Cube was scanned incorrectly
-				print("[ Rescanning ]")
+				rubcube = RubiksCube(sides_map)
+				solver = Solver(rubcube)
 
-		display = Display(rubcube)
+				try:
+					# If solver.solve() raise exception then cube was scanned incorrectly
+					solving_steps = solver.solve()
+				except:
+					# Cube was scanned incorrectly
+					print("[ Rescanning ]")
+					conn.sendto("rescan".encode(), addr)
+					continue
 
-		# Visual assembler starts at thread
-		assembler = threading.Thread(target=assemble_the_cube, args=(solving_steps, conn, addr))
-		assembler.start()
+				if validation(solver.rubcube):
+					# Everything is awesome
+					break
+				else:
+					# Cube was scanned incorrectly
+					print("[ Rescanning ]")
+					conn.sendto("rescan".encode(), addr)
+					continue
 
-		# Launching display visualisation
-		restart = True
-		while restart:
-			try:
-				display.run()
-				restart = False
-			except:
-				print("[ Error at starting display. Restarts display ]")
+			# sides_map = []
+			# rubcube = RubiksCube(sides_map)
+			# solver = Solver(rubcube)
+			# solving_steps = solver.solve()
 
-	s.close()
+			display = Display(rubcube)
 
-print("[ Server stopped ]")
+			# Visual assembler starts at thread
+			assembler = threading.Thread(target=assemble_the_cube, args=(solving_steps, conn, addr))
+			assembler.start()
+
+			# Launching display visualisation
+			restart = True
+			while restart:
+				try:
+					display.run()
+					restart = False
+				except:
+					print("[ Error at starting display. Restarts display ]")
+
+		s.close()
+
+	print("[ Server stopped ]")

@@ -121,12 +121,12 @@ class Robot:
 
 	def scan_cross_cube(self):
 		"""Lift up color scanner on cross cubes of Rubik's cube and return his color at percentage."""
-		self.scanner.run_target(speed=self.scanner_speed, target_angle=-615, then=Stop.COAST) # -615
+		self.scanner.run_target(speed=self.scanner_speed, target_angle=-605, then=Stop.COAST) # -615
 		return self.color_sensor.rgb()
 	
 	def scan_corner_cube(self):
 		"""Lift up color scanner on corner cubes of Rubik's cube and return his color at percentage."""
-		self.scanner.run_target(speed=self.scanner_speed, target_angle=-535, then=Stop.COAST) # -540
+		self.scanner.run_target(speed=self.scanner_speed, target_angle=-540, then=Stop.COAST) # -545
 		return self.color_sensor.rgb()
 
 	def scan_central_cube(self):
@@ -251,9 +251,8 @@ class Robot:
 		return matrix
 
 if __name__ == "__main__":
-	print(sys.version)
 	HOST = "10.42.0.1"
-	# HOST = "127.0.0.1"
+	# HOST = "192.168.137.1"
 	PORT = 56789
 	server = (HOST, PORT)
 
